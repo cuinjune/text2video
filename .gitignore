@@ -1,4 +1,7 @@
 # ignore all those dependencies
 node_modules
+# ignore all files in output folder
+output/*
+!output/.gitkeep
 # ignore weird mac files
 .DS_Store
