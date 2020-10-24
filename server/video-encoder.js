@@ -36,6 +36,8 @@ var FFMpegRunner = require('../lib/ffmpeg-runner');
 var fs           = require('fs');
 var path         = require('path');
 var utils        = require('../lib/utils');
+var http = require('http');
+var https = require('https');
 
 var encoders = [];
 
@@ -75,11 +77,37 @@ function VideoEncoder(client, server, id, options) {
   var codec;
   var connected = true;
   var ffmpegArguments;
+  var videoLength = 0;
+  var audioData = [];
+  var audioFilesWritten = false;
 
   debug("" + id + ": start encoder");
 
   function safeName(name) {
     return name.substr(0, 30).replace(/[^0-9a-zA-Z-.]/g, '_');
+  }
+
+  function writeAudioFiles(data) {
+    var len = data.length;
+    var files = Array(len).fill();
+    var count = 0;
+    for (let i = 0; i < len; i++) {
+      var ext = data[i].url.split('.').pop();
+      var audioname = path.join(options.videoDir, `audio-${id}-${i}.${ext}`);
+      files[i] = fs.createWriteStream(audioname);
+      var httpOrhttps = data[i].url.substring(0, 5) === "https" ? https : http;
+      httpOrhttps.get(data[i].url, function (res) {
+        res.pipe(files[i]);
+        files[i].on('finish', function () {
+          files[i].close(function () {
+            console.log('saved audio: ' + path.join(options.videoDir, `audio-${id}-${count}.${ext}`));
+            if (++count == len) {
+              audioFilesWritten = true;
+            }
+          });
+        });
+      });
+    }
   }
 
   var handleStart = function(data) {
@@ -91,12 +119,15 @@ function VideoEncoder(client, server, id, options) {
     framerate = data.framerate || 30;
     extension = safeName(data.extension || ".mp4");
     codec = data.codec;
+    videoLength = data.videoLength;
+    audioData = data.audioData;
     if (options.allowArbitraryFfmpegArguments) {
       ffmpegArguments = data.ffmpegArguments;
     } else if (data.ffmpegArguments) {
       sendCmd("error", { msg: "ffmpegArguments not allowed without --allow-arbitrary-ffmpeg-argumments command line option" });
       return;
     }
+    writeAudioFiles(audioData);
 
 // TODO: check it's not started
     count = 0;
@@ -139,11 +170,23 @@ function VideoEncoder(client, server, id, options) {
         args.push("-c:v", "libx264", "-pix_fmt", "yuv420p");
       }
 
+      if (videoLength > 0) {
+        args.push("-t", videoLength / 1000);
+      }
+
       if (Array.isArray(ffmpegArguments)) {
         args = args.concat(ffmpegArguments);
       }
-      args.push(videoname)
+      args.push(videoname);
 
+      if (audioData.length) {
+        audioData.forEach(function (data, index) {
+          var ext = data.url.split('.').pop();
+          var audioname = path.join(options.videoDir, `audio-${id}-${index}.${ext}`);
+          args.push("-itsoffset", data.start / 1000, "-i", audioname);
+        });
+        args.push("-filter_complex", "amix", "-async", "1");
+      }
 
       var handleFFMpegError = function(result) {
         debug("error running ffmpeg: " + JSON.stringify(result));
@@ -172,10 +215,18 @@ function VideoEncoder(client, server, id, options) {
         });
       };
 
-      var runner = new FFMpegRunner(args);
-      runner.on('error', handleFFMpegError);
-      runner.on('done', handleFFMpegDone);
-      runner.on('frame', handleFFMpegFrame);
+      function checkAudioFilesWritten() {
+        if (audioFilesWritten) {
+          var runner = new FFMpegRunner(args);
+          runner.on('error', handleFFMpegError);
+          runner.on('done', handleFFMpegDone);
+          runner.on('frame', handleFFMpegFrame);
+        }
+        else {
+          setTimeout(checkAudioFilesWritten, 100);
+        }
+      }
+      checkAudioFilesWritten();
     }
   }
 
