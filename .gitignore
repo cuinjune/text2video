@@ -1,0 +1,4 @@
+# ignore all those dependencies
+node_modules
+# ignore weird mac files
+.DS_Store

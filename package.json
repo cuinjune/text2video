@@ -1,0 +1,35 @@
+{
+  "name": "text2video",
+  "version": "0.0.1",
+  "description": "A text-based video creation tool",
+  "main": "start.js",
+  "scripts": {
+    "test": "node node_modules/mocha/bin/mocha --recursive",
+    "start": "node start.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cuinjune/text2video.git"
+  },
+  "keywords": [
+    "text2video",
+    "text",
+    "video",
+    "canvas",
+    "encode",
+    "encoder",
+    "encoding"
+  ],
+  "author": "Zack Lee",
+  "license": "GPLV3",
+  "dependencies": {
+    "busboy": "^0.3.1",
+    "debug": "^4.1.1",
+    "express": "^4.17.1",
+    "ffmpeg-static": "^3.0.0",
+    "optionator": "^0.8.3",
+    "tmp": "^0.1.0",
+    "ws": "^7.2.1"
+  },
+  "devDependencies": {}
+}
