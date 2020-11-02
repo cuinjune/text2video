@@ -1,0 +1,21 @@
+* {
+    padding: 0;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 15px;
+}
+
+body {
+    font-family: Helvetica, sans-serif;
+}
+
+canvas {
+    border: 1px solid black;
+}
+
+a {
+    display: block;
+}

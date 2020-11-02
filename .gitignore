@@ -1,7 +1,9 @@
 # ignore all those dependencies
 node_modules
-# ignore all files in output folder
+# ignore all files in output folder but keep the folder
 output/*
 !output/.gitkeep
 # ignore weird mac files
 .DS_Store
+# ignore the .env file with your secret info
+.env

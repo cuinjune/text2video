@@ -31,13 +31,17 @@
 
 'use strict';
 
-var debug   = require('debug')('video-server');
-var events  = require('events');
+var debug = require('debug')('video-server');
+var events = require('events');
 var express = require('express');
-var fs      = require('fs');
-var http    = require('http');
-var path    = require('path');
-var url     = require('url');
+var fs = require('fs');
+var http = require('http');
+var path = require('path');
+var url = require('url');
+var AWS = require('aws-sdk');
+var Stream = require('stream');
+var bodyParser = require('body-parser');
+var config = require('./config');
 
 var statP = fs.promises.stat;
 
@@ -46,23 +50,94 @@ var statP = fs.promises.stat;
  * @param {function(err): void} startedCallback called with err
  *        of error, undefined if successful.
  */
-var VideoServer = function(options, startedCallback) {
+var VideoServer = function (options, startedCallback) {
   options = options || {};
   var self = this;
   var g = {
-    port: 8080,
+    port: config.PORT,
     baseDir: 'public',
     cwd: process.cwd(),
     files: {},
   };
 
-  Object.keys(options).forEach(function(prop) {
+  Object.keys(options).forEach(function (prop) {
     g[prop] = options[prop];
   });
 
   var app = express();
+  app.use(bodyParser.json());
+  app.use(bodyParser.urlencoded({ extended: true }));
 
-  var handleOPTIONS = function(req, res) {
+  var polly = new AWS.Polly({
+    signatureVersion: "v4",
+    region: config.AWS_REGION,
+    accessKeyId: config.AWS_ACCESS_KEY_ID,
+    secretAccessKey: config.AWS_SECRET_ACCESS_KEY
+  });
+
+  app.post("/api/v1/speech", (req, res) => {
+    var params = {
+      Text: req.body.text,
+      VoiceId: req.body.voiceId,
+      OutputFormat: "mp3"
+    }
+    polly.synthesizeSpeech(params, (err, data) => {
+      if (err) {
+        res.json({ error: JSON.stringify(err.code) });
+      }
+      else if (data) {
+        if (data.AudioStream instanceof Buffer) {
+          var speechName = path.join(g.videoDir, "speech.mp3");
+          var writeStream = fs.createWriteStream(speechName);
+          var bufferStream = new Stream.PassThrough();
+          bufferStream.end(data.AudioStream);
+          bufferStream.pipe(writeStream);
+          writeStream.on("finish", function () {
+            var audioData = {};
+            fs.readFile(speechName, function (err, file) {
+              if (err) {
+                res.json({ error: JSON.stringify(err) });
+              }
+              else {
+                var base64File = Buffer.from(file, "binary").toString("base64");
+                audioData.fileContent = base64File;
+                params.OutputFormat = "json";
+                params.SpeechMarkTypes = ["word", "sentence"];
+                polly.synthesizeSpeech(params, (err, data) => {
+                  if (err) {
+                    res.json({ error: JSON.stringify(err.code) });
+                  }
+                  else if (data) {
+                    if (data.AudioStream instanceof Buffer) {
+                      var buf = Buffer.from(data.AudioStream);
+                      var lines = buf.toString().split("\n");
+                      var markData = [];
+                      for (var line of lines) {
+                        if (line) {
+                          markData.push(JSON.parse(line));
+                        }
+                      }
+                      res.json({
+                        audioData: audioData,
+                        markData: markData
+                      });
+                    }
+                  }
+                });
+              }
+              fs.unlink(speechName, (err) => { // delete the file
+                if (err) {
+                  console.log(err);
+                }
+              });
+            });
+          });
+        }
+      }
+    });
+  });
+
+  var handleOPTIONS = function (req, res) {
     res.removeHeader('Content-Type');
     res.writeHead(200, {
       'Access-Control-Allow-Origin': '*',
@@ -74,7 +149,7 @@ var VideoServer = function(options, startedCallback) {
     res.end('{}');
   };
 
-  var handleDownload = function(req, res) {
+  var handleDownload = function (req, res) {
     var fileId = req.params[0];
     var fileInfo = g.files[fileId];
     if (!fileInfo) {
@@ -82,18 +157,18 @@ var VideoServer = function(options, startedCallback) {
       return res.status(404).send('no file: ' + fileId);
     }
     debug("download: " + fileInfo.path);
-    setTimeout(function() {
+    setTimeout(function () {
       res.sendFile(fileInfo.path);
     }, 1);
   };
 
-//  app.use(/^\/api\/v0\/uploadFile\//, busboy());
-//  app.post(/^\/api\/v0\/uploadFile\//, addUploadedFile);
-//  app.post(/.*/, bodyParser);
-//  app.get(/^\/frameencoder\/frameencoder\.js$/, function(req, res) {
-//    debug("send frameencoder");
-//    res.end("frameencoder");
-//  });
+  //  app.use(/^\/api\/v0\/uploadFile\//, busboy());
+  //  app.post(/^\/api\/v0\/uploadFile\//, addUploadedFile);
+  //  app.post(/.*/, bodyParser);
+  //  app.get(/^\/frameencoder\/frameencoder\.js$/, function(req, res) {
+  //    debug("send frameencoder");
+  //    res.end("frameencoder");
+  //  });
   app.get(/^\/frameencoder\/downloads\/(.*?)$/, handleDownload);
   app.options(/.*/, handleOPTIONS);
   app.use('/ffmpegserver', express.static(path.join(__dirname, '..', 'dist')));
@@ -114,6 +189,7 @@ var VideoServer = function(options, startedCallback) {
       frameDir: options.frameDir,
       keepFrames: options.keepFrames,
       allowArbitraryFfmpegArguments: options.allowArbitraryFfmpegArguments,
+      polly: polly
     });
     socketServer.setVideoServer(self);
     console.log("Listening on port:", g.port);
@@ -134,51 +210,51 @@ var VideoServer = function(options, startedCallback) {
    * Close the HFTServer
    * @todo make it no-op after it's closed?
    */
-  this.close = function() {
+  this.close = function () {
     socketServer.close();
     server.close();
   };
 
-  this.on = function() {
+  this.on = function () {
     eventEmitter.on.apply(eventEmitter, arguments);
   };
 
-  this.addListener = function() {
+  this.addListener = function () {
     eventEmitter.addListener.apply(eventEmitter, arguments);
   };
 
-  this.removeListener = function() {
+  this.removeListener = function () {
     eventEmitter.removeListener.apply(eventEmitter, arguments);
   };
 
-//  this.handleRequest = function(req, res) {
-//    app(req, res);
-//  };
-  this.getServer = function() {
+  //  this.handleRequest = function(req, res) {
+  //    app(req, res);
+  //  };
+  this.getServer = function () {
     return server;
   };
 
-  this.getApp = function() {
+  this.getApp = function () {
     return app;
   };
 
-  this.addFile = function(filename) {
+  this.addFile = function (filename) {
     var basename = path.basename(filename);
     var pathname = "/frameencoder/downloads/" + basename;
     g.files[basename] = {
       path: filename,
     };
     return statP(filename)
-    .then(function(stat) {
-      return {
-        pathname: pathname,
-        size: stat.size,
-      };
-    })
-    .catch(function(e) {
-      console.error(e);
-      throw e;
-    });
+      .then(function (stat) {
+        return {
+          pathname: pathname,
+          size: stat.size,
+        };
+      })
+      .catch(function (e) {
+        console.error(e);
+        throw e;
+      });
   };
 };
 

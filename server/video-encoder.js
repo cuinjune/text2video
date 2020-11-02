@@ -78,7 +78,9 @@ function VideoEncoder(client, server, id, options) {
   var connected = true;
   var ffmpegArguments;
   var videoLength = 0;
+  var speechData = [];
   var audioData = [];
+  var speechFilesWritten = false;
   var audioFilesWritten = false;
 
   debug("" + id + ": start encoder");
@@ -87,26 +89,73 @@ function VideoEncoder(client, server, id, options) {
     return name.substr(0, 30).replace(/[^0-9a-zA-Z-.]/g, '_');
   }
 
+  function writeSpeechFiles(data) {
+    var len = data.length;
+    if (len) {
+      var count = 0;
+      function synthesizeSpeech() {
+        var params = {
+          Text: data[count].text,
+          VoiceId: data[count].voiceId,
+          OutputFormat: "mp3"
+        }
+        options.polly.synthesizeSpeech(params, (err, data) => {
+          if (err) {
+            console.log(err.code);
+          }
+          else if (data) {
+            if (data.AudioStream instanceof Buffer) {
+              var speechName = path.join(options.videoDir, `speech-${id}-${count}.mp3`);
+              fs.writeFile(speechName, data.AudioStream, function (err) {
+                if (err) {
+                  console.log(err);
+                }
+                else {
+                  console.log("saved speech: " + path.join(options.videoDir, `speech-${id}-${count}.mp3`));
+                }
+                if (++count == len) {
+                  speechFilesWritten = true;
+                }
+                else {
+                  synthesizeSpeech();
+                }
+              });
+            }
+          }
+        });
+      }
+      synthesizeSpeech();
+    }
+    else {
+      speechFilesWritten = true;
+    }
+  }
+
   function writeAudioFiles(data) {
     var len = data.length;
-    var files = Array(len).fill();
-    var count = 0;
-    for (let i = 0; i < len; i++) {
-      var ext = data[i].url.split('.').pop();
-      var audioname = path.join(options.videoDir, `audio-${id}-${i}.${ext}`);
-      files[i] = fs.createWriteStream(audioname);
-      var httpOrhttps = data[i].url.substring(0, 5) === "https" ? https : http;
-      httpOrhttps.get(data[i].url, function (res) {
-        res.pipe(files[i]);
-        files[i].on('finish', function () {
-          files[i].close(function () {
-            console.log('saved audio: ' + path.join(options.videoDir, `audio-${id}-${count}.${ext}`));
-            if (++count == len) {
-              audioFilesWritten = true;
-            }
+    if (len) {
+      var files = Array(len).fill();
+      var count = 0;
+      for (let i = 0; i < len; i++) {
+        var ext = data[i].url.split('.').pop();
+        var audioName = path.join(options.videoDir, `audio-${id}-${i}.${ext}`);
+        files[i] = fs.createWriteStream(audioName);
+        var httpOrhttps = data[i].url.substring(0, 5) === "https" ? https : http;
+        httpOrhttps.get(data[i].url, function (res) {
+          res.pipe(files[i]);
+          files[i].on('finish', function () {
+            files[i].close(function () {
+              console.log('saved audio: ' + path.join(options.videoDir, `audio-${id}-${i}.${ext}`));
+              if (++count == len) {
+                audioFilesWritten = true;
+              }
+            });
           });
         });
-      });
+      }
+    }
+    else {
+      audioFilesWritten = true;
     }
   }
 
@@ -120,6 +169,7 @@ function VideoEncoder(client, server, id, options) {
     extension = safeName(data.extension || ".mp4");
     codec = data.codec;
     videoLength = data.videoLength;
+    speechData = data.speechData;
     audioData = data.audioData;
     if (options.allowArbitraryFfmpegArguments) {
       ffmpegArguments = data.ffmpegArguments;
@@ -127,6 +177,7 @@ function VideoEncoder(client, server, id, options) {
       sendCmd("error", { msg: "ffmpegArguments not allowed without --allow-arbitrary-ffmpeg-argumments command line option" });
       return;
     }
+    writeSpeechFiles(speechData);
     writeAudioFiles(audioData);
 
 // TODO: check it's not started
@@ -145,14 +196,23 @@ function VideoEncoder(client, server, id, options) {
         frames.forEach(utils.deleteNoFail.bind(utils));
         frames = [];
       }
+      speechData.forEach(function (data, index) {
+        var speechName = path.join(options.videoDir, `speech-${id}-${index}.mp3`);
+        utils.deleteNoFail(speechName);
+      });
+      audioData.forEach(function (data, index) {
+        var ext = data.url.split('.').pop();
+        var audioName = path.join(options.videoDir, `audio-${id}-${index}.${ext}`);
+        utils.deleteNoFail(audioName);
+      });
     }
   };
 
   var checkForEnd = function() {
     if (ended && numWriting === 0) {
-      var videoname = path.join(options.videoDir, name + extension);
-      var framesname = path.join(options.frameDir, name + "-%d.png");
-      console.log("converting " + framesname + " to " + videoname);
+      var videoName = path.join(options.videoDir, name + extension);
+      var framesName = path.join(options.frameDir, name + "-%d.png");
+      console.log("converting " + framesName + " to " + videoName);
 
       var args = [];
 
@@ -160,7 +220,7 @@ function VideoEncoder(client, server, id, options) {
         "-framerate", framerate,
         "-pattern_type", "sequence",
         "-start_number", "0",
-        "-i", framesname,
+        "-i", framesName,
         "-y",
       ]);
 
@@ -177,15 +237,19 @@ function VideoEncoder(client, server, id, options) {
       if (Array.isArray(ffmpegArguments)) {
         args = args.concat(ffmpegArguments);
       }
-      args.push(videoname);
+      args.push(videoName);
 
-      if (audioData.length) {
+      if (speechData.length || audioData.length) {
+        speechData.forEach(function (data, index) {
+          var speechName = path.join(options.videoDir, `speech-${id}-${index}.mp3`);
+          args.push("-itsoffset", data.start / 1000, "-i", speechName);
+        });
         audioData.forEach(function (data, index) {
           var ext = data.url.split('.').pop();
-          var audioname = path.join(options.videoDir, `audio-${id}-${index}.${ext}`);
-          args.push("-itsoffset", data.start / 1000, "-i", audioname);
+          var audioName = path.join(options.videoDir, `audio-${id}-${index}.${ext}`);
+          args.push("-itsoffset", data.start / 1000, "-i", audioName);
         });
-        args.push("-filter_complex", "amix", "-async", "1");
+        args.push("-filter_complex", `amix=inputs=${speechData.length + audioData.length}`, "-async", "1");
       }
 
       var handleFFMpegError = function(result) {
@@ -196,15 +260,15 @@ function VideoEncoder(client, server, id, options) {
       };
 
       var handleFFMpegDone = function(result) {
-        console.log("converted frames to: " + videoname);
-        server.addFile(videoname)
+        console.log("converted frames to: " + videoName);
+        server.addFile(videoName)
         .then(function(fileInfo) {
           sendCmd("end", fileInfo);
           cleanup();
           name = undefined;
         })
         .catch(function(e) {
-          console.log("error adding file: " + videoname);
+          console.log("error adding file: " + videoName);
           throw e;
         });
       };
@@ -215,18 +279,18 @@ function VideoEncoder(client, server, id, options) {
         });
       };
 
-      function checkAudioFilesWritten() {
-        if (audioFilesWritten) {
+      function checkFilesWritten() {
+        if (speechFilesWritten && audioFilesWritten) {
           var runner = new FFMpegRunner(args);
           runner.on('error', handleFFMpegError);
           runner.on('done', handleFFMpegDone);
           runner.on('frame', handleFFMpegFrame);
         }
         else {
-          setTimeout(checkAudioFilesWritten, 100);
+          setTimeout(checkFilesWritten, 100);
         }
       }
-      checkAudioFilesWritten();
+      checkFilesWritten();
     }
   }
 
@@ -241,23 +305,23 @@ function VideoEncoder(client, server, id, options) {
       return;
     }
     var frameNum = count++;
-    var filename = path.join(options.frameDir, name + "-" + frameNum + ".png");
-    debug("write: " + filename);
+    var fileName = path.join(options.frameDir, name + "-" + frameNum + ".png");
+    debug("write: " + fileName);
     var image = dataURL.substr(EXPECTED_HEADER.length);
     ++numWriting;
-    fs.writeFile(filename, image, 'base64', function(err) {
+    fs.writeFile(fileName, image, 'base64', function(err) {
       --numWriting;
       if (err) {
         ++numErrors;
         console.error(err);
       } else {
         if (!connected) {
-          utils.deleteNoFail(filename);
+          utils.deleteNoFail(fileName);
           return;
         }
-        frames.push(filename);
+        frames.push(fileName);
         sendCmd("frame", { frameNum: frameNum })
-        console.log('saved frame: ' + filename);
+        console.log('saved frame: ' + fileName);
       }
       if (numWriting === 0) {
         checkForEnd();

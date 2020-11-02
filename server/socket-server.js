@@ -65,6 +65,7 @@ var SocketServer = function(server, options) {
         frameDir: options.frameDir,
         keepFrames: options.keepFrames,
         allowArbitraryFfmpegArguments: options.allowArbitraryFfmpegArguments,
+        polly: options.polly
       });
   }.bind(this));
 
