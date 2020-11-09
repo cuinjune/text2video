@@ -199,7 +199,7 @@ var VideoServer = function (options, startedCallback) {
   };
 
   function tryToStartServer() {
-    server.listen(g.port);
+    server.listen(process.env.PORT || g.port);
   }
 
   server.once('error', serverErrorHandler);
