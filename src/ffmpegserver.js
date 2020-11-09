@@ -79,7 +79,7 @@ define([
         }
         if (scriptNames[scriptName]) {
           var u = new URL(script.src);
-          var url = "ws://" + u.host;
+          var url = "wss://" + u.host;
           return url;
         }
       }

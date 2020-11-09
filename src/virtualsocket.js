@@ -68,7 +68,7 @@ define(function() {
     var log = options.quiet === true ? console.log.bind(console) : function() {};
     var _socket;
 
-    var url = options.url || "ws://" + window.location.host;
+    var url = options.url || "wss://" + window.location.host;
     log("connecting to: " + url);
     _socket = new WebSocket(url);
 
