@@ -242,12 +242,12 @@ function VideoEncoder(client, server, id, options) {
       if (speechData.length || audioData.length) {
         speechData.forEach(function (data, index) {
           var speechName = path.join(options.videoDir, `speech-${id}-${index}.mp3`);
-          args.push("-itsoffset", data.start / 1000, "-i", speechName);
+          args.push("-itsoffset", data.start / 1000, "-t", data.end / 1000, "-i", speechName);
         });
         audioData.forEach(function (data, index) {
           var ext = data.url.split('.').pop();
           var audioName = path.join(options.videoDir, `audio-${id}-${index}.${ext}`);
-          args.push("-itsoffset", data.start / 1000, "-i", audioName);
+          args.push("-itsoffset", data.start / 1000, "-t", data.end / 1000, "-i", audioName);
         });
         args.push("-filter_complex", `amix=inputs=${speechData.length + audioData.length}`, "-async", "1");
       }

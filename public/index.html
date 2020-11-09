@@ -15,20 +15,12 @@
 
 <body>
   <h1>text2video</h1>
-
-  <textarea id="textarea" rows="10" cols="50"></textarea>
+  <hr />
+  <canvas id="canvas"></canvas>
+  <textarea id="textArea" maxlength="3000" placeholder="Please type any text"></textarea>
   <br />
   <button id="preview">Preview</button>
-
-
-  <br />
-  <br />
-  <br />
-  <br />
-
-  <button id="start">Start</button>
-  <br />
-  <canvas id="canvas"></canvas>
+  <button id="convert">Convert to MP4</button>
   <div id="progress"></div>
   <div id="videoLink"></div>
   <script src="main.js"></script>
