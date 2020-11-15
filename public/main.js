@@ -600,7 +600,7 @@ download.addEventListener("click", async function () {
   const capturer = new CCapture(capturerData);
   const captureStartTime = +new Date;
   currentFrameTime = 0;
-  download.innerText = "Rendering: 0%";
+  download.innerText = "Rendering: 0.0%";
   capturer.start();
 
   function capture() {
@@ -613,7 +613,7 @@ download.addEventListener("click", async function () {
       setTimeout(capture, 4);
     }
     else {
-      download.innerText = "Rendering: 100%";
+      download.innerText = "Rendering: 100.0%";
       capturer.stop();
       capturer.save(showVideoLink);
       const captureEndTime = +new Date;
