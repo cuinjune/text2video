@@ -6,12 +6,18 @@ let isCapturing = false;
 let currentFrameTime = 0;
 const maxNumWordsPerSubtitle = 18;
 const blockWidthRatio = 0.9;
-const blockHeightRatio = 0.5;
+const blockHeightRatio = 0.9;
 const subtitleHeightRatio = 0.25;
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 canvas.width = 1280;
 canvas.height = 720;
+
+// elements
+const textArea = document.getElementById("textArea");
+const example = document.getElementById("example");
+const preview = document.getElementById("preview");
+const download = document.getElementById("download");
 
 function drawImageInBlock(image, x, y, width, height) {
   const wrh = image.width / image.height;
@@ -215,8 +221,44 @@ function getSelectedText(textArea) {
   return selectedText;
 }
 
+// textArea
+textArea.addEventListener("input", function () {
+  if (textArea.value.length) {
+    example.innerText = "Clear Text";
+    example.style.padding = "10px 37px";
+  }
+  else {
+    example.innerText = "Show Example";
+    example.style.padding = "10px 20px";
+  }
+});
+
+// textArea.addEventListener("dragenter", function (e) {
+//   e.preventDefault();
+// });
+
+// textArea.addEventListener("dragleave", function (e) {
+//   e.preventDefault();
+// });
+
+// textArea.addEventListener("dragover", function (e) {
+//   e.preventDefault();
+// });
+
+// textArea.addEventListener("drop", function (e) {
+//   e.preventDefault();
+//   const file = e.dataTransfer.files[0];
+//   console.log(image.name);
+//   const reader = new FileReader();
+//   reader.onload = function (event) {
+//     var image = new Image();
+//     image.src = event.target.result; // set image source
+//     document.getElementById('body').appendChild(image); // append image to body
+//   };
+//   reader.readAsDataURL(file);
+// });
+
 async function makeCommands() {
-  const textArea = document.getElementById("textArea");
   const text = getSelectedText(textArea) || textArea.value;
   if (!text.trim().length) {
     alert("Please type any text.");
@@ -237,96 +279,94 @@ async function makeCommands() {
       stack.push({ index: index, i: i });
     }
     else if (char == "]") { // should grab until (..)
-      if (stack.length) {
-        i++;
-        if (i < text.length && text.charAt(i) === "(") {
-          const opi = i;
-          let value = "";
-          let type = "";
-          let object = null;
-          let isClosed = false;
-          for (i++; i < text.length; i++) {
-            const char = text.charAt(i);
-            if (char === ")") {
-              isClosed = true;
-              break;
-            }
-            else {
-              value += char;
-            }
-          }
-          if (isClosed) {
-            const values = value.split(",");
-            for (let value of values) {
-              value = value.trim();
-              if (value.substring(0, 4) === "http") {
-                const ext = value.split('.').pop();
-                if (ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "gif") {
-                  type = "image";
-                  const imageLoadPromise = new Promise(resolve => {
-                    object = new Image();
-                    object.crossOrigin = "anonymous";
-                    object.onload = resolve;
-                    object.onerror = function () {
-                      alert(`Error: Could not load the image from ${value}`);
-                      return "";
-                    };
-                    object.src = value;
-                  });
-                  await imageLoadPromise;
-                }
-                else if (ext === "mp3" || ext === "wav") {
-                  type = "audio";
-                  const audioLoadPromise = new Promise(resolve => {
-                    object = new Audio();
-                    object.oncanplaythrough = resolve;
-                    object.onerror = function () {
-                      alert(`Error: Could not load the audio from ${value}`);
-                      return "";
-                    };
-                    object.src = value;
-                  });
-                  await audioLoadPromise;
-                }
-                else {
-                  alert(`Error: "${ext}" is not supported file extension.`);
-                  return "";
-                }
-              }
-              else {
-                type = "text";
-              }
-              const command = {
-                start: stack[stack.length - 1].index, // note: if start == end, it means [] is empty, should print error?
-                end: index,
-                type: type,
-                value: value,
-                object: object
-              }
-              commands.push(command);
-            }
-            stack.pop();
-          }
-          else {
-            alert(`Error: The closing parenthesis is missing after the opening parenthesis at index ${opi}.`);
-            return "";
-          }
-        }
-        else {
-          alert(`Error: Parentheses are missing after the closing bracket at index ${i}.`);
-          return "";
-        }
-      }
-      else {
+      if (!stack.length) {
         alert(`Error: An unopened closing bracket found at index ${i}.`);
         return "";
       }
+      i++;
+      if (i < text.length && text.charAt(i) === "(") {
+        const opi = i;
+        let value = "";
+        let type = "";
+        let object = null;
+        let isClosed = false;
+        for (i++; i < text.length; i++) {
+          const char = text.charAt(i);
+          if (char === ")") {
+            isClosed = true;
+            break;
+          }
+          else {
+            value += char;
+          }
+        }
+        if (!isClosed) {
+          alert(`Error: The closing parenthesis is missing after the opening parenthesis at index ${opi}.`);
+          return "";
+        }
+        const values = value.split(",");
+        for (let value of values) {
+          value = value.trim();
+          if (value.substring(0, 4) === "http") {
+            const ext = value.split('.').pop();
+            if (ext.substring(0, 3).toLowerCase() === "png" || ext.substring(0, 3).toLowerCase() === "jpg" || ext.substring(0, 4).toLowerCase() === "jpeg" || ext.substring(0, 3).toLowerCase() === "gif" || ext.substring(0, 3).toLowerCase() === "svg") {
+              type = "image";
+              const imageLoadPromise = new Promise(resolve => {
+                object = new Image();
+                object.crossOrigin = "anonymous";
+                object.onload = resolve;
+                object.onerror = function () {
+                  alert(`Error: Could not load the image from ${value}`);
+                  return "";
+                };
+                object.src = value;
+              });
+              await imageLoadPromise;
+            }
+            else if (ext.substring(0, 3).toLowerCase() === "mp3" || ext.substring(0, 3).toLowerCase() === "wav" || ext.substring(0, 3).toLowerCase() === "ogg") {
+              type = "audio";
+              const audioLoadPromise = new Promise(resolve => {
+                object = new Audio();
+                object.oncanplaythrough = resolve;
+                object.onerror = function () {
+                  alert(`Error: Could not load the audio from ${value}`);
+                  return "";
+                };
+                object.src = value;
+              });
+              await audioLoadPromise;
+            }
+            else {
+              alert(`Error: "${ext}" is not supported file extension.`);
+              return "";
+            }
+          }
+          else {
+            type = "text";
+          }
+          const command = {
+            start: stack[stack.length - 1].index, // note: if start == end, it means [] is empty, should print error?
+            end: index,
+            type: type,
+            value: value,
+            object: object
+          }
+          commands.push(command);
+        }
+      }
+      else { // opening parenthesis not found (ignore text inside the brackets)
+        index = stack[stack.length - 1].index;
+        plainText = plainText.substring(0, index);
+        i--;
+      }
+      stack.pop();
     }
     else {
       plainText += char;
       index++;
     }
   }
+
   if (stack.length) {
     const i = stack[stack.length - 1].i;
     alert(`Error: An unclosed opening bracket found at index ${i}.`);
@@ -361,6 +401,8 @@ async function makeCommands() {
     alert("Error: The speech audio length is zero.");
     return "";
   }
+  // later, maybe show this information to the user in the gui?
+  console.log("The video length will be " + videoLength.toFixed(0) + "ms.");
   const markData = data.markData;
 
   for (const command of commands) {
@@ -458,9 +500,23 @@ async function makeCommands() {
   return plainText;
 }
 
-document.getElementById("preview").addEventListener("click", async function () {
+// buttons
+example.addEventListener("click", function () {
+  if (example.innerText === "Clear Text") {
+    textArea.value = "";
+    example.innerText = "Show Example";
+    example.style.padding = "10px 20px";
+  }
+  else if (example.innerText === "Show Example") {
+    textArea.value = "[The Beatles were an English rock band formed in Liverpool in 1960.](https://i.imgur.com/cY0R5Pz.jpg, The Beatles) [The group, whose best-known line-up comprised](https://i.imgur.com/5BMFvAC.jpeg) [John Lennon, [Paul McCartney, [George Harrison and [Ringo Starr, are regarded as the most influential band of all time.](https://upload.wikimedia.org/wikipedia/commons/8/80/Ringo_Starr_NY_1964.png)](https://i.imgur.com/iA0hxJc.jpg)](https://i.imgur.com/L3o91Hr.jpeg)](https://i.imgur.com/zxtJGhk.jpg)";
+    example.innerText = "Clear Text";
+    example.style.padding = "10px 37px";
+  }
+});
+
+preview.addEventListener("click", async function () {
   if (isCapturing) {
-    alert("You cannot preview while the video is being converted.");
+    alert("You cannot preview while the video is being rendered.");
     return;
   }
   const plainText = await makeCommands();
@@ -475,9 +531,9 @@ document.getElementById("preview").addEventListener("click", async function () {
   draw();
 });
 
-document.getElementById("convert").addEventListener("click", async function () {
+download.addEventListener("click", async function () {
   if (isCapturing) {
-    alert("The video is already being converted.");
+    alert("The video is being rendered.");
     return;
   }
   isCapturing = true;
@@ -488,20 +544,9 @@ document.getElementById("convert").addEventListener("click", async function () {
     return;
   }
 
-  // progress and video link
-  const progressElem = document.getElementById("progress");
-  progressElem.innerHTML = "";
-  const progressNode = document.createTextNode("");
-  progressElem.appendChild(progressNode);
-
-  const videoLinkElem = document.getElementById("videoLink");
-  videoLinkElem.innerHTML = "";
-
   function onProgress(progress) {
-    progressNode.nodeValue = (progress * 100).toFixed(1) + "%";
-    if (progress == 1) {
-      progressElem.innerHTML = "";
-    }
+    const convertingProgress = (progress * 100).toFixed(1) + "%";
+    download.innerText = "Converting: " + convertingProgress;
   }
 
   function showVideoLink(url, size) {
@@ -515,7 +560,9 @@ document.getElementById("convert").addEventListener("click", async function () {
     }
     a.download = filename;
     a.appendChild(document.createTextNode(filename + size));
-    videoLinkElem.appendChild(a);
+    a.click(); // auto download
+    download.innerText = "Download MP4";
+    console.log("Downloading Complete");
   }
 
   // start capturing
@@ -552,17 +599,21 @@ document.getElementById("convert").addEventListener("click", async function () {
 
   const capturer = new CCapture(capturerData);
   const captureStartTime = +new Date;
-  capturer.start();
   currentFrameTime = 0;
+  download.innerText = "Rendering: 0%";
+  capturer.start();
 
   function capture() {
-    if (currentFrameTime <= videoLength) {
+    if (currentFrameTime < videoLength) {
       draw();
       capturer.capture(canvas);
       currentFrameTime += frameTime;
+      const renderingProgress = (Math.min(currentFrameTime / videoLength, 1) * 100).toFixed(1) + "%";
+      download.innerText = "Rendering: " + renderingProgress;
       setTimeout(capture, 4);
     }
     else {
+      download.innerText = "Rendering: 100%";
       capturer.stop();
       capturer.save(showVideoLink);
       const captureEndTime = +new Date;
