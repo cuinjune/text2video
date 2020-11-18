@@ -227,7 +227,7 @@ function getSelectedText(textArea) {
 textArea.addEventListener("input", function () {
   if (textArea.value.length) {
     example.innerText = "Clear Text";
-    example.style.padding = "10px 37px";
+    example.style.padding = "10px 32.5px";
   }
   else {
     example.innerText = "Show Tutorial";
