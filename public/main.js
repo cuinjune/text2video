@@ -12,12 +12,14 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 canvas.width = 1280;
 canvas.height = 720;
+const tutorial = '[This is a tool for creating slideshows with a voice over. Press the "Test Slideshow" button.](https://i.imgur.com/62ccMnv.jpg)\n\n[The voice will speak whatever text you type in square brackets.](https://upload.wikimedia.org/wikipedia/commons/3/3c/Chimpanzee_seated_at_typewriter.jpg, Typing intensifies...)\n\n[Image URLs should be put in parentheses immediately after the text you type.](https://i.imgur.com/gqBG7EK.jpeg, Image labels can be added inside the parentheses after a comma.)\n\n[When you are done testing your slideshow, you can save it as a video.](https://i.imgur.com/cNE5HDu.png)';
 
 // elements
 const textArea = document.getElementById("textArea");
 const example = document.getElementById("example");
 const preview = document.getElementById("preview");
 const download = document.getElementById("download");
+textArea.value = tutorial;
 
 function drawImageInBlock(image, x, y, width, height) {
   const wrh = image.width / image.height;
@@ -228,7 +230,7 @@ textArea.addEventListener("input", function () {
     example.style.padding = "10px 37px";
   }
   else {
-    example.innerText = "Show Example";
+    example.innerText = "Show Tutorial";
     example.style.padding = "10px 20px";
   }
 });
@@ -504,13 +506,13 @@ async function makeCommands() {
 example.addEventListener("click", function () {
   if (example.innerText === "Clear Text") {
     textArea.value = "";
-    example.innerText = "Show Example";
+    example.innerText = "Show Tutorial";
     example.style.padding = "10px 20px";
   }
-  else if (example.innerText === "Show Example") {
-    textArea.value = "[The Beatles were an English rock band formed in Liverpool in 1960.](https://i.imgur.com/cY0R5Pz.jpg, The Beatles) [The group, whose best-known line-up comprised](https://i.imgur.com/5BMFvAC.jpeg) [John Lennon, [Paul McCartney, [George Harrison and [Ringo Starr, are regarded as the most influential band of all time.](https://upload.wikimedia.org/wikipedia/commons/8/80/Ringo_Starr_NY_1964.png)](https://i.imgur.com/iA0hxJc.jpg)](https://i.imgur.com/L3o91Hr.jpeg)](https://i.imgur.com/zxtJGhk.jpg)";
+  else if (example.innerText === "Show Tutorial") {
+    textArea.value = tutorial;
     example.innerText = "Clear Text";
-    example.style.padding = "10px 37px";
+    example.style.padding = "10px 32.5px";
   }
 });
 
@@ -561,7 +563,7 @@ download.addEventListener("click", async function () {
     a.download = filename;
     a.appendChild(document.createTextNode(filename + size));
     a.click(); // auto download
-    download.innerText = "Download MP4";
+    download.innerText = "Download Video";
     console.log("Downloading Complete");
   }
 
