@@ -5,7 +5,7 @@
 
 Text2Video is a text-based video creation tool.
 
-You can watch a [Demo Video on Youtube](https://youtu.be/eeaVmDJ5-BE).
+You can watch a [Demo Video on Youtube](https://youtu.be/Lt-cqqZte0I).
 
 Here's the [Live Demo on Heroku](https://text-to-video.herokuapp.com/).
 
