@@ -41,8 +41,8 @@ var url = require('url');
 var AWS = require('aws-sdk');
 var Stream = require('stream');
 var bodyParser = require('body-parser');
+const getJSON = require('get-json');
 var config = require('./config');
-
 var statP = fs.promises.stat;
 
 /**
@@ -68,15 +68,88 @@ var VideoServer = function (options, startedCallback) {
   app.use(bodyParser.json());
   app.use(bodyParser.urlencoded({ extended: true }));
 
-  var polly = new AWS.Polly({
+  const polly = new AWS.Polly({
     signatureVersion: "v4",
     region: config.AWS_REGION,
     accessKeyId: config.AWS_ACCESS_KEY_ID,
     secretAccessKey: config.AWS_SECRET_ACCESS_KEY
   });
 
+  function getImageSearchURL(word) {
+    return `https://pixabay.com/api/?key=${config.PIXABAY_API_AUTH_KEY}&per_page=${200}&q=${encodeURIComponent(word)}`;
+  }
+
+  function getVideoSearchURL(word) {
+    return `https://pixabay.com/api/videos/?key=${config.PIXABAY_API_AUTH_KEY}&per_page=${200}&q=${encodeURIComponent(word)}`;
+  }
+
+  async function getImageURLFromWords(words) {
+    let imageURL = "";
+    for (const word of words) {
+      console.log(`searching image: ${word}`);
+      imageURL = await getJSON(getImageSearchURL(word)).then(function (res) {
+        const numImages = res.hits.length;
+        if (numImages) {
+          for (let i = 0; i < 3; i++) { // go through 3 tags
+            for (let j = 0; j < numImages; j++) {
+              // prioritize images tagged with the same word
+              if (res.hits[j].tags.split(", ")[i] === word) {
+                return res.hits[j].webformatURL;
+              }
+            }
+          }
+          return res.hits[0].webformatURL;
+        }
+        return "";
+      }).catch(function (err) {
+        console.log(err);
+        return "";
+      });
+      if (imageURL) {
+        break;
+      }
+    }
+    return imageURL;
+  }
+
+  async function getVideoURLFromWords(words) {
+    let videoURL = "";
+    for (const word of words) {
+      console.log(`searching video ${word}`);
+      videoURL = await getJSON(getVideoSearchURL(word)).then(function (res) {
+        const numVideos = res.hits.length;
+        if (numVideos) {
+          for (let i = 0; i < 3; i++) { // go through 3 tags
+            for (let j = 0; j < numVideos; j++) {
+              // prioritize videos tagged with the same word
+              if (res.hits[j].tags.split(", ")[i] === word) {
+                return res.hits[j].videos.medium.url;
+              }
+            }
+          }
+          return res.hits[0].videos.medium.url;
+        }
+        return "";
+      }).catch(function (err) {
+        console.log(err);
+        return "";
+      });
+      if (videoURL) {
+        break;
+      }
+    }
+    return videoURL;
+  }
+
+  function getWordsFromSentence(sentence) {
+    let words = sentence.split(" ");
+    words = words.map(word => word.toLowerCase());
+    words = words.filter(word => word.length > 2 && !["the", "this", "are", "not", "but", "will", "you", "your", "and", "was", "then", "there", "those", "they", "our", "therefore", "however", "what", "when", "how", "where", "who"].includes(word));
+    return words;
+  }
+
   app.post("/api/v1/speech", (req, res) => {
-    var params = {
+    const params = {
       Text: req.body.text,
       VoiceId: req.body.voiceId,
       OutputFormat: "mp3"
@@ -87,37 +160,55 @@ var VideoServer = function (options, startedCallback) {
       }
       else if (data) {
         if (data.AudioStream instanceof Buffer) {
-          var speechName = path.join(g.videoDir, "speech.mp3");
-          var writeStream = fs.createWriteStream(speechName);
-          var bufferStream = new Stream.PassThrough();
+          const speechName = path.join(g.videoDir, "speech.mp3");
+          const writeStream = fs.createWriteStream(speechName);
+          const bufferStream = new Stream.PassThrough();
           bufferStream.end(data.AudioStream);
           bufferStream.pipe(writeStream);
           writeStream.on("finish", function () {
-            var audioData = {};
+            let audioData = {};
             fs.readFile(speechName, function (err, file) {
               if (err) {
                 res.json({ error: JSON.stringify(err) });
               }
               else {
-                var base64File = Buffer.from(file, "binary").toString("base64");
+                const base64File = Buffer.from(file, "binary").toString("base64");
                 audioData.fileContent = base64File;
                 params.OutputFormat = "json";
                 params.SpeechMarkTypes = ["word", "sentence"];
-                polly.synthesizeSpeech(params, (err, data) => {
+                polly.synthesizeSpeech(params, async (err, data) => {
                   if (err) {
                     res.json({ error: JSON.stringify(err.code) });
                   }
                   else if (data) {
                     if (data.AudioStream instanceof Buffer) {
-                      var buf = Buffer.from(data.AudioStream);
-                      var lines = buf.toString().split("\n");
-                      var markData = [];
-                      for (var line of lines) {
+                      const buf = Buffer.from(data.AudioStream);
+                      const lines = buf.toString().split("\n");
+                      let markData = [];
+                      let sentences = [];
+                      for (const line of lines) {
                         if (line) {
-                          markData.push(JSON.parse(line));
+                          const parsed = JSON.parse(line);
+                          if (parsed.type === "sentence") {
+                            sentences.push(parsed.value);
+                          }
+                          markData.push(parsed);
                         }
                       }
+                      // convert original to formatted text
+                      let text = params.Text;
+                      let lastIndex = text.length - 1;
+                      for (let i = sentences.length; i--;) {
+                        const sentence = sentences[i];
+                        const start = text.lastIndexOf(sentence, lastIndex);
+                        const end = start + sentence.length;
+                        const words = getWordsFromSentence(sentence);
+                        const videoURL = await getVideoURLFromWords(words);
+                        text = text.slice(0, start) + text.slice(start, end).replace(sentence, `[${sentence}](${videoURL})`) + text.slice(end);
+                        lastIndex = start - 1;
+                      }
                       res.json({
+                        formattedText: text,
                         audioData: audioData,
                         markData: markData
                       });

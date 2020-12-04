@@ -12,14 +12,12 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 canvas.width = 1280;
 canvas.height = 720;
-const tutorial = '[This is a tool for creating slideshows with a voice over. Press the "Test Slideshow" button.](https://i.imgur.com/62ccMnv.jpg)\n\n[The voice will speak whatever text you type in square brackets.](https://upload.wikimedia.org/wikipedia/commons/3/3c/Chimpanzee_seated_at_typewriter.jpg, Typing intensifies...)\n\n[Image URLs should be put in parentheses immediately after the text you type.](https://i.imgur.com/gqBG7EK.jpeg, Image labels can be added inside the parentheses after a comma.)\n\n[When you are done testing your slideshow, you can save it as a video.](https://i.imgur.com/cNE5HDu.png)';
 
 // elements
 const textArea = document.getElementById("textArea");
 const example = document.getElementById("example");
 const preview = document.getElementById("preview");
 const download = document.getElementById("download");
-textArea.value = tutorial;
 
 function drawImageInBlock(image, x, y, width, height) {
   const wrh = image.width / image.height;
@@ -118,6 +116,21 @@ function draw() {
               }
             }
             break;
+          case "video":
+            let video = command.object;
+            if (video) {
+              if (video.paused) {
+                video.volume = 0;
+                video.play();
+                video.onended = function () {
+                  video = null;
+                }
+              }
+              else {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              }
+            }
+            break;
           case "image":
             const image = command.object;
             images.push(image);
@@ -132,12 +145,21 @@ function draw() {
         }
       }
       else {
-        if (command.type === "audio") {
-          let audio = command.object;
-          if (!isCapturing && audio && !audio.paused) {
-            audio.pause();
-            audio = null;
-          }
+        switch (command.type) {
+          case "audio":
+            let audio = command.object;
+            if (!isCapturing && audio && !audio.paused) {
+              audio.pause();
+              audio = null;
+            }
+            break;
+          case "video":
+            let video = command.object;
+            if (video && !video.paused) {
+              video.pause();
+              video = null;
+            }
+            break;
         }
       }
     }
@@ -204,6 +226,19 @@ function pauseAllPlayingAudio() {
   }
 }
 
+function pauseAllPlayingVideo() {
+  for (const command of commands) {
+    if (command.type === "video") {
+      let video = command.object;
+      if (video && !video.paused) {
+        video.pause();
+        video.currentTime = 0;
+        video = null;
+      }
+    }
+  }
+}
+
 async function postTextData(text, voiceId) {
   const url = "/api/v1/speech";
   const options = { method: "POST", headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text, voiceId: voiceId }) };
@@ -227,43 +262,24 @@ function getSelectedText(textArea) {
 textArea.addEventListener("input", function () {
   if (textArea.value.length) {
     example.innerText = "Clear Text";
-    example.style.padding = "10px 32.5px";
+    example.style.padding = "10px 37px";
   }
   else {
-    example.innerText = "Show Tutorial";
+    example.innerText = "Show Example";
     example.style.padding = "10px 20px";
   }
 });
 
-// textArea.addEventListener("dragenter", function (e) {
-//   e.preventDefault();
-// });
-
-// textArea.addEventListener("dragleave", function (e) {
-//   e.preventDefault();
-// });
-
-// textArea.addEventListener("dragover", function (e) {
-//   e.preventDefault();
-// });
-
-// textArea.addEventListener("drop", function (e) {
-//   e.preventDefault();
-//   const file = e.dataTransfer.files[0];
-//   console.log(image.name);
-//   const reader = new FileReader();
-//   reader.onload = function (event) {
-//     var image = new Image();
-//     image.src = event.target.result; // set image source
-//     document.getElementById('body').appendChild(image); // append image to body
-//   };
-//   reader.readAsDataURL(file);
-// });
-
 async function makeCommands() {
-  const text = getSelectedText(textArea) || textArea.value;
+  let text = getSelectedText(textArea) || textArea.value;
   if (!text.trim().length) {
     alert("Please type any text.");
+    return "";
+  }
+  // remove all characters inside [] and also remove all [ or ]
+  text = text.replace(/(?:\[.*?\]|[\[\]])/g, "");
+  if (!text.trim().length) {
+    alert("It looks like the text is wrapped in brackets. Please remove them.");
     return "";
   }
   if (text.length > 3000) {
@@ -271,6 +287,16 @@ async function makeCommands() {
     return "";
   }
   pauseAllPlayingAudio();
+  pauseAllPlayingVideo();
+
+  // sends the plain text and returns data containing formattedText, audioData, and markData
+  const data = await postTextData(text, "Kimberly");
+  if (data.error) {
+    alert("Error:", data.error);
+    return "";
+  }
+  text = data.formattedText;
+
   commands = [];
   let plainText = "";
   let index = 0;
@@ -310,8 +336,22 @@ async function makeCommands() {
         for (let value of values) {
           value = value.trim();
           if (value.substring(0, 4) === "http") {
-            const ext = value.split('.').pop();
-            if (ext.substring(0, 3).toLowerCase() === "png" || ext.substring(0, 3).toLowerCase() === "jpg" || ext.substring(0, 4).toLowerCase() === "jpeg" || ext.substring(0, 3).toLowerCase() === "gif" || ext.substring(0, 3).toLowerCase() === "svg") {
+            const ext = value.split(".").pop();
+            if (ext.substring(0, 3).toLowerCase() === "mp4" || ext.substring(0, 3).toLowerCase() === "mpg" || ext.substring(0, 3).toLowerCase() === "mp2" || ext.substring(0, 3).toLowerCase() === "mov" || ext.substring(0, 3).toLowerCase() === "avi") {
+              type = "video";
+              const videoLoadPromise = new Promise(resolve => {
+                object = document.createElement("video");
+                object.crossOrigin = "anonymous";
+                object.onloadeddata = resolve;
+                object.onerror = function () {
+                  alert(`Error: Could not load the video from ${value}`);
+                  return "";
+                };
+                object.src = value;
+              });
+              await videoLoadPromise;
+            }
+            else if (ext.substring(0, 3).toLowerCase() === "png" || ext.substring(0, 3).toLowerCase() === "jpg" || ext.substring(0, 4).toLowerCase() === "jpeg" || ext.substring(0, 3).toLowerCase() === "gif" || ext.substring(0, 3).toLowerCase() === "svg") {
               type = "image";
               const imageLoadPromise = new Promise(resolve => {
                 object = new Image();
@@ -339,12 +379,14 @@ async function makeCommands() {
               await audioLoadPromise;
             }
             else {
-              alert(`Error: "${ext}" is not supported file extension.`);
-              return "";
+              type = "text";
+              value = "";
+              console.log(`Error: "${ext}" is not supported file extension.`);
             }
           }
           else {
             type = "text";
+            value = "";
           }
           const command = {
             start: stack[stack.length - 1].index, // note: if start == end, it means [] is empty, should print error?
@@ -377,12 +419,6 @@ async function makeCommands() {
 
   if (!plainText.trim().length) {
     alert("Error: Cannot convert empty text to a speech audio.");
-    return "";
-  }
-
-  const data = await postTextData(plainText, "Kimberly");
-  if (data.error) {
-    alert("Error:", data.error);
     return "";
   }
 
@@ -506,13 +542,13 @@ async function makeCommands() {
 example.addEventListener("click", function () {
   if (example.innerText === "Clear Text") {
     textArea.value = "";
-    example.innerText = "Show Tutorial";
+    example.innerText = "Show Example";
     example.style.padding = "10px 20px";
   }
-  else if (example.innerText === "Show Tutorial") {
-    textArea.value = tutorial;
+  else if (example.innerText === "Show Example") {
+    textArea.value = "Hello, this is an example text.";
     example.innerText = "Clear Text";
-    example.style.padding = "10px 32.5px";
+    example.style.padding = "10px 37px";
   }
 });
 
@@ -528,6 +564,7 @@ preview.addEventListener("click", async function () {
   ttsAudio.play();
   ttsAudio.onended = function () {
     pauseAllPlayingAudio();
+    pauseAllPlayingVideo();
   }
   startTime = new Date();
   draw();
@@ -540,6 +577,7 @@ download.addEventListener("click", async function () {
   }
   isCapturing = true;
   pauseAllPlayingAudio();
+  pauseAllPlayingVideo();
   const plainText = await makeCommands();
   if (!plainText) {
     isCapturing = false;
