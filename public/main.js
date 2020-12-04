@@ -120,7 +120,6 @@ function draw() {
             let video = command.object;
             if (video) {
               if (video.paused) {
-                video.volume = 0;
                 video.play();
                 video.onended = function () {
                   video = null;
@@ -232,6 +231,7 @@ function pauseAllPlayingVideo() {
       let video = command.object;
       if (video && !video.paused) {
         video.pause();
+        video.volume = 0;
         video.currentTime = 0;
         video = null;
       }
@@ -342,7 +342,7 @@ async function makeCommands() {
               const videoLoadPromise = new Promise(resolve => {
                 object = document.createElement("video");
                 object.crossOrigin = "anonymous";
-                object.onloadeddata = resolve;
+                object.oncanplaythrough = resolve;
                 object.onerror = function () {
                   alert(`Error: Could not load the video from ${value}`);
                   return "";
@@ -350,6 +350,10 @@ async function makeCommands() {
                 object.src = value;
               });
               await videoLoadPromise;
+              object.play();
+              object.pause();
+              object.volume = 0;
+              object.currentTime = 0;
             }
             else if (ext.substring(0, 3).toLowerCase() === "png" || ext.substring(0, 3).toLowerCase() === "jpg" || ext.substring(0, 4).toLowerCase() === "jpeg" || ext.substring(0, 3).toLowerCase() === "gif" || ext.substring(0, 3).toLowerCase() === "svg") {
               type = "image";
@@ -606,7 +610,7 @@ download.addEventListener("click", async function () {
   }
 
   // start capturing
-  const frameRate = 24;
+  const frameRate = 60;
   const frameTime = 1000 / frameRate;
 
   const capturerData = {
