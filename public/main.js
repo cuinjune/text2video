@@ -610,7 +610,7 @@ download.addEventListener("click", async function () {
   }
 
   // start capturing
-  const frameRate = 60;
+  const frameRate = 24;
   const frameTime = 1000 / frameRate;
 
   const capturerData = {

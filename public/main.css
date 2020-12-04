@@ -122,7 +122,8 @@ textarea:focus {
     background-color: rgb(231, 95, 70);
     border-radius: 20px;
     border: 0px;
-    display: inline-block;
+    /* display: inline-block; */
+    display: none;
     cursor: pointer;
     color: #ffffff;
     font-size: 16px;
