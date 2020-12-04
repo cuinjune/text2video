@@ -5,8 +5,8 @@ let ttsAudio = null;
 let isCapturing = false;
 let currentFrameTime = 0;
 const maxNumWordsPerSubtitle = 18;
-const blockWidthRatio = 0.9;
-const blockHeightRatio = 0.9;
+const blockWidthRatio = 1.0;
+const blockHeightRatio = 1.0;
 const subtitleHeightRatio = 0.25;
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
@@ -553,6 +553,7 @@ example.addEventListener("click", function () {
     textArea.value = "Hello, this is an example text.";
     example.innerText = "Clear Text";
     example.style.padding = "10px 37px";
+    preview.click();
   }
 });
 

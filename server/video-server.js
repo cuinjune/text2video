@@ -83,7 +83,7 @@ var VideoServer = function (options, startedCallback) {
     return `https://pixabay.com/api/videos/?key=${config.PIXABAY_API_AUTH_KEY}&per_page=${200}&q=${encodeURIComponent(word)}`;
   }
 
-  async function getImageURLFromWords(words) {
+  async function getImageURLFromWords(words, imageIDs) {
     let imageURL = "";
     for (const word of words) {
       console.log(`searching image: ${word}`);
@@ -93,12 +93,26 @@ var VideoServer = function (options, startedCallback) {
           for (let i = 0; i < 3; i++) { // go through 3 tags
             for (let j = 0; j < numImages; j++) {
               // prioritize images tagged with the same word
-              if (res.hits[j].tags.split(", ")[i] === word) {
+              if (res.hits[j].tags.split(", ")[i] === word && !imageIDs.has(res.hits[j].id)) {
+                const ratio = res.hits[j].webformatHeight / res.hits[j].webformatWidth;
+                if (ratio >= 0.5125 && ratio <= 0.6125) { // ideal ratio = 720 / 1280 = 0.5625
+                  imageIDs.add(res.hits[j].id);
+                  return res.hits[j].webformatURL;
+                }
+              }
+            }
+          }
+          // get any available image regardless of tags
+          for (let j = 0; j < numImages; j++) {
+            if (!imageIDs.has(res.hits[j].id)) {
+              const ratio = res.hits[j].webformatHeight / res.hits[j].webformatWidth;
+              if (ratio >= 0.5125 && ratio <= 0.6125) { // ideal ratio = 720 / 1280 = 0.5625
+                imageIDs.add(res.hits[j].id);
                 return res.hits[j].webformatURL;
               }
             }
           }
-          return res.hits[0].webformatURL;
+          return "";
         }
         return "";
       }).catch(function (err) {
@@ -112,7 +126,7 @@ var VideoServer = function (options, startedCallback) {
     return imageURL;
   }
 
-  async function getVideoURLFromWords(words) {
+  async function getVideoURLFromWords(words, videoIDs, minDuration) {
     let videoURL = "";
     for (const word of words) {
       console.log(`searching video ${word}`);
@@ -122,12 +136,20 @@ var VideoServer = function (options, startedCallback) {
           for (let i = 0; i < 3; i++) { // go through 3 tags
             for (let j = 0; j < numVideos; j++) {
               // prioritize videos tagged with the same word
-              if (res.hits[j].tags.split(", ")[i] === word) {
+              if (res.hits[j].tags.split(", ")[i] === word && !videoIDs.has(res.hits[j].id) && res.hits[j].duration > minDuration) {
+                videoIDs.add(res.hits[j].id);
                 return res.hits[j].videos.medium.url;
               }
             }
           }
-          return res.hits[0].videos.medium.url;
+          // get any available video regardless of tags
+          for (let j = 0; j < numVideos; j++) {
+            if (!videoIDs.has(res.hits[j].id) && res.hits[j].duration > minDuration) {
+              videoIDs.add(res.hits[j].id);
+              return res.hits[j].videos.medium.url;
+            }
+          }
+          return "";
         }
         return "";
       }).catch(function (err) {
@@ -190,21 +212,47 @@ var VideoServer = function (options, startedCallback) {
                         if (line) {
                           const parsed = JSON.parse(line);
                           if (parsed.type === "sentence") {
-                            sentences.push(parsed.value);
+                            sentences.push({
+                              value: parsed.value,
+                              time: parsed.time
+                            });
                           }
                           markData.push(parsed);
+                        }
+                      }
+                      let nextStartTime = 0; // start time of next sentence
+                      for (let i = sentences.length; i--;) {
+                        if (!nextStartTime) { // last sentence
+                          // roughly calculate the duration of last sentence
+                          const startTime = sentences[i].time;
+                          const numWords = sentences[i].value.trim().split(/\s+/).length;
+                          const avgNumWordsPerSec = 2.5;
+                          sentences[i].time = numWords / avgNumWordsPerSec * 1000;
+                          nextStartTime = startTime;
+                        }
+                        else {
+                          const startTime = sentences[i].time;
+                          sentences[i].time = nextStartTime - startTime;
+                          nextStartTime = startTime;
                         }
                       }
                       // convert original to formatted text
                       let text = params.Text;
                       let lastIndex = text.length - 1;
+                      // used for avoid using repeated contents
+                      let imageIDs = new Set();
+                      let videoIDs = new Set();
                       for (let i = sentences.length; i--;) {
-                        const sentence = sentences[i];
+                        const sentence = sentences[i].value;
+                        const minDuration = sentences[i].time / 1000; // minimum required duration of video in seconds
                         const start = text.lastIndexOf(sentence, lastIndex);
                         const end = start + sentence.length;
                         const words = getWordsFromSentence(sentence);
-                        const videoURL = await getVideoURLFromWords(words);
-                        text = text.slice(0, start) + text.slice(start, end).replace(sentence, `[${sentence}](${videoURL})`) + text.slice(end);
+                        let contentURL = await getVideoURLFromWords(words, videoIDs, minDuration);
+                        if (!contentURL) {
+                          contentURL = await getImageURLFromWords(words, imageIDs);
+                        }
+                        text = text.slice(0, start) + text.slice(start, end).replace(sentence, `[${sentence}](${contentURL})`) + text.slice(end);
                         lastIndex = start - 1;
                       }
                       res.json({
