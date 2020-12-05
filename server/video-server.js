@@ -184,7 +184,8 @@ var VideoServer = function (options, startedCallback) {
 
   app.post("/api/v1/speech", (req, res) => {
     const params = {
-      Text: req.body.text,
+      Text: `<speak><prosody rate="90%">${req.body.text}</prosody></speak>`,
+      TextType: "ssml",
       VoiceId: req.body.voiceId,
       OutputFormat: "mp3"
     }
