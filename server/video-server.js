@@ -50,19 +50,19 @@ var statP = fs.promises.stat;
 // python child process
 ////////////////////////////////////////////////////////////////////////////////
 
-// start python child process
-var child = require("child_process").spawn("python", ["./server/main.py", process.env.PORT || config.PORT]);
+// // start python child process
+// var child = require("child_process").spawn("python", ["./server/main.py", process.env.PORT || config.PORT]);
 
-// and unref() somehow disentangles the child's event loop from the parent's: 
-child.unref();
-child.stdout.setEncoding("utf8");
-child.stderr.setEncoding("utf8");
-child.stdout.on("data", function (data) {
-  console.log(data.toString());
-});
-child.stderr.on("data", function (data) {
-  console.error(data.toString());
-});
+// // and unref() somehow disentangles the child's event loop from the parent's: 
+// child.unref();
+// child.stdout.setEncoding("utf8");
+// child.stderr.setEncoding("utf8");
+// child.stdout.on("data", function (data) {
+//   console.log(data.toString());
+// });
+// child.stderr.on("data", function (data) {
+//   console.error(data.toString());
+// });
 
 ////////////////////////////////////////////////////////////////////////////////
 // exit handler 
@@ -332,7 +332,7 @@ var VideoServer = function (options, startedCallback) {
                       let imageIDs = new Set(blockedIDs);
                       let videoIDs = new Set(blockedIDs);
                       const got = await test_get(sentences[0]);
-                      console.log("WHAT I GOT:", got);
+                      console.log("WHAT I GOT GOT:", got);
                       for (let i = sentences.length; i--;) {
                         const sentence = sentences[i].value;
                         const minDuration = sentences[i].time / 1000; // minimum required duration of video in seconds
