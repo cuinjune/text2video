@@ -83,10 +83,13 @@ var VideoServer = function (options, startedCallback) {
     return `https://pixabay.com/api/videos/?key=${config.PIXABAY_API_AUTH_KEY}&per_page=${200}&q=${encodeURIComponent(word)}`;
   }
 
+  function printObtained(type, word, id, url) {
+    console.log(`${type}: ${word}, id: ${id}, url: ${url}`)
+  }
+
   async function getImageURLFromWords(words, imageIDs) {
     let imageURL = "";
     for (const word of words) {
-      console.log(`searching image: ${word}`);
       imageURL = await getJSON(getImageSearchURL(word)).then(function (res) {
         const numImages = res.hits.length;
         if (numImages) {
@@ -97,6 +100,7 @@ var VideoServer = function (options, startedCallback) {
                 const ratio = res.hits[j].webformatHeight / res.hits[j].webformatWidth;
                 if (ratio >= 0.5125 && ratio <= 0.6125) { // ideal ratio = 720 / 1280 = 0.5625
                   imageIDs.add(res.hits[j].id);
+                  printObtained("image", word, res.hits[j].id, res.hits[j].webformatURL);
                   return res.hits[j].webformatURL;
                 }
               }
@@ -108,6 +112,7 @@ var VideoServer = function (options, startedCallback) {
               const ratio = res.hits[j].webformatHeight / res.hits[j].webformatWidth;
               if (ratio >= 0.5125 && ratio <= 0.6125) { // ideal ratio = 720 / 1280 = 0.5625
                 imageIDs.add(res.hits[j].id);
+                printObtained("image", word, res.hits[j].id, res.hits[j].webformatURL);
                 return res.hits[j].webformatURL;
               }
             }
@@ -126,27 +131,34 @@ var VideoServer = function (options, startedCallback) {
     return imageURL;
   }
 
-  async function getVideoURLFromWords(words, videoIDs, minDuration) {
+  async function getVideoURLFromWords(words, videoIDs, minDuration, maxDuration) {
     let videoURL = "";
     for (const word of words) {
-      console.log(`searching video ${word}`);
       videoURL = await getJSON(getVideoSearchURL(word)).then(function (res) {
         const numVideos = res.hits.length;
         if (numVideos) {
           for (let i = 0; i < 3; i++) { // go through 3 tags
             for (let j = 0; j < numVideos; j++) {
               // prioritize videos tagged with the same word
-              if (res.hits[j].tags.split(", ")[i] === word && !videoIDs.has(res.hits[j].id) && res.hits[j].duration > minDuration) {
-                videoIDs.add(res.hits[j].id);
-                return res.hits[j].videos.medium.url;
+              if (res.hits[j].tags.split(", ")[i] === word && !videoIDs.has(res.hits[j].id)) {
+                const duration = res.hits[j].duration;
+                if (duration >= minDuration && duration <= maxDuration) {
+                  videoIDs.add(res.hits[j].id);
+                  printObtained("video", word, res.hits[j].id, res.hits[j].videos.medium.url);
+                  return res.hits[j].videos.medium.url;
+                }
               }
             }
           }
           // get any available video regardless of tags
           for (let j = 0; j < numVideos; j++) {
-            if (!videoIDs.has(res.hits[j].id) && res.hits[j].duration > minDuration) {
-              videoIDs.add(res.hits[j].id);
-              return res.hits[j].videos.medium.url;
+            if (!videoIDs.has(res.hits[j].id)) {
+              const duration = res.hits[j].duration;
+              if (duration >= minDuration && duration <= maxDuration) {
+                videoIDs.add(res.hits[j].id);
+                printObtained("video", word, res.hits[j].id, res.hits[j].videos.medium.url);
+                return res.hits[j].videos.medium.url;
+              }
             }
           }
           return "";
@@ -240,15 +252,17 @@ var VideoServer = function (options, startedCallback) {
                       let text = params.Text;
                       let lastIndex = text.length - 1;
                       // used for avoid using repeated contents
-                      let imageIDs = new Set();
-                      let videoIDs = new Set();
+                      const blockedIDs = [15333]; // temporary solution to avoid using CORS blocked contents
+                      let imageIDs = new Set(blockedIDs);
+                      let videoIDs = new Set(blockedIDs);
                       for (let i = sentences.length; i--;) {
                         const sentence = sentences[i].value;
                         const minDuration = sentences[i].time / 1000; // minimum required duration of video in seconds
+                        const maxDuration = Math.min(minDuration + 30, 60); // maximum duration of video in seconds
                         const start = text.lastIndexOf(sentence, lastIndex);
                         const end = start + sentence.length;
                         const words = getWordsFromSentence(sentence);
-                        let contentURL = await getVideoURLFromWords(words, videoIDs, minDuration);
+                        let contentURL = await getVideoURLFromWords(words, videoIDs, minDuration, maxDuration);
                         if (!contentURL) {
                           contentURL = await getImageURLFromWords(words, imageIDs);
                         }

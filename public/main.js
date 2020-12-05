@@ -290,7 +290,7 @@ async function makeCommands() {
   pauseAllPlayingVideo();
 
   // sends the plain text and returns data containing formattedText, audioData, and markData
-  const data = await postTextData(text, "Kimberly");
+  const data = await postTextData(text, "Joanna");
   if (data.error) {
     alert("Error:", data.error);
     return "";
@@ -349,6 +349,7 @@ async function makeCommands() {
                 };
                 object.src = value;
               });
+              console.log("loading video:", value);
               await videoLoadPromise;
               object.play();
               object.pause();
@@ -367,6 +368,7 @@ async function makeCommands() {
                 };
                 object.src = value;
               });
+              console.log("loading image:", value);
               await imageLoadPromise;
             }
             else if (ext.substring(0, 3).toLowerCase() === "mp3" || ext.substring(0, 3).toLowerCase() === "wav" || ext.substring(0, 3).toLowerCase() === "ogg") {
@@ -380,6 +382,7 @@ async function makeCommands() {
                 };
                 object.src = value;
               });
+              console.log("loading audio:", value);
               await audioLoadPromise;
             }
             else {
@@ -627,7 +630,7 @@ download.addEventListener("click", async function () {
   // multiple speech data can be used later
   capturerData.speechData.push({
     text: plainText,
-    voiceId: "Kimberly",
+    voiceId: "Joanna",
     start: 0,
     end: videoLength,
   });
