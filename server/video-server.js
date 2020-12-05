@@ -41,9 +41,62 @@ var url = require('url');
 var AWS = require('aws-sdk');
 var Stream = require('stream');
 var bodyParser = require('body-parser');
-const getJSON = require('get-json');
+var request = require('request-promise');
+var getJSON = require('get-json');
 var config = require('./config');
 var statP = fs.promises.stat;
+
+////////////////////////////////////////////////////////////////////////////////
+// python child process
+////////////////////////////////////////////////////////////////////////////////
+
+// start python child process
+var child = require("child_process").spawn("python", ["./server/main.py", process.env.PORT || config.PORT]);
+
+// and unref() somehow disentangles the child's event loop from the parent's: 
+child.unref();
+child.stdout.setEncoding("utf8");
+child.stderr.setEncoding("utf8");
+child.stdout.on("data", function (data) {
+  console.log(data.toString());
+});
+child.stderr.on("data", function (data) {
+  console.error(data.toString());
+});
+
+////////////////////////////////////////////////////////////////////////////////
+// exit handler 
+////////////////////////////////////////////////////////////////////////////////
+
+// so the program will not close instantly
+process.stdin.resume();
+
+// do something before exit
+function exitHandler(options, exitCode) {
+  if (options.cleanup) {
+    // kill python child process
+    console.log("\nquitting python child process...");
+    proc.kill("SIGINT");
+  }
+  if (options.exit) process.exit();
+}
+
+// do something when app is closing
+process.on('exit', exitHandler.bind(null, { cleanup: true }));
+
+// catches ctrl+c event
+process.on('SIGINT', exitHandler.bind(null, { exit: true }));
+
+// catches "kill pid" (for example: nodemon restart)
+process.on('SIGUSR1', exitHandler.bind(null, { exit: true }));
+process.on('SIGUSR2', exitHandler.bind(null, { exit: true }));
+
+// catches uncaught exceptions
+process.on('uncaughtException', exitHandler.bind(null, { exit: true }));
+
+////////////////////////////////////////////////////////////////////////////////
+// video server
+////////////////////////////////////////////////////////////////////////////////
 
 /**
  * @param {VideoServer~Options} options
@@ -182,6 +235,28 @@ var VideoServer = function (options, startedCallback) {
     return words;
   }
 
+  async function test_get(test) {
+    const data = { // this variable contains the data you want to send 
+      data1: "foo",
+      data2: test
+    }
+
+    const options = {
+      method: "POST",
+      uri: `http://localhost:${process.env.PORT || config.PORT}/api/v1/flask`,
+      body: data,
+      json: true
+    };
+
+    return await request(options)
+      .then(function (parsed) {
+        return parsed;
+      })
+      .catch(function (err) {
+        return { err: err };
+      });
+  }
+
   app.post("/api/v1/speech", (req, res) => {
     const params = {
       Text: `<speak><prosody rate="90%">${req.body.text}</prosody></speak>`,
@@ -256,6 +331,8 @@ var VideoServer = function (options, startedCallback) {
                       const blockedIDs = [15333]; // temporary solution to avoid using CORS blocked contents
                       let imageIDs = new Set(blockedIDs);
                       let videoIDs = new Set(blockedIDs);
+                      const got = await test_get(sentences[0]);
+                      console.log("WHAT I GOT:", got);
                       for (let i = sentences.length; i--;) {
                         const sentence = sentences[i].value;
                         const minDuration = sentences[i].time / 1000; // minimum required duration of video in seconds
@@ -273,7 +350,8 @@ var VideoServer = function (options, startedCallback) {
                       res.json({
                         formattedText: text,
                         audioData: audioData,
-                        markData: markData
+                        markData: markData,
+                        got: got
                       });
                     }
                   }

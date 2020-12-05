@@ -296,6 +296,7 @@ async function makeCommands() {
     return "";
   }
   text = data.formattedText;
+  console.log("WHAT I GOT:", data.got);
 
   commands = [];
   let plainText = "";
