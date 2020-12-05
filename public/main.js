@@ -565,7 +565,15 @@ preview.addEventListener("click", async function () {
     alert("You cannot preview while the video is being rendered.");
     return;
   }
+  if (preview.innerText === "Processing...") {
+    console.log("The video is being processed.");
+    return;
+  }
+  preview.innerText = "Processing...";
+  preview.style.padding = "10px 24.5px";
   const plainText = await makeCommands();
+  preview.innerText = "Preview Video";
+  preview.style.padding = "10px 20px";
   if (!plainText) {
     return;
   }
