@@ -4,10 +4,11 @@ from flask import Flask, request
 from gevent.pywsgi import WSGIServer
 import json 
 
-print("STARTING FLASK!!!!!!!!!!!!!")
- 
+
 app = Flask(__name__) 
 PORT = int(os.environ.get("PORT", 8080))
+
+print("STARTING FLASK!!!!!!!!!!!!! FROM: ", PORT)
  
 @app.route("/api/v1/flask", methods = ["POST"]) 
 def postdata(): 
