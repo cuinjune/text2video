@@ -46,58 +46,6 @@ var getJSON = require('get-json');
 var config = require('./config');
 var statP = fs.promises.stat;
 
-////////////////////////////////////////////////////////////////////////////////
-// python child process
-////////////////////////////////////////////////////////////////////////////////
-
-// start python child process
-var child = require("child_process").spawn("python", ["./server/main.py", process.env.PORT || config.PORT]);
-
-// and unref() somehow disentangles the child's event loop from the parent's: 
-child.unref();
-child.stdout.setEncoding("utf8");
-child.stderr.setEncoding("utf8");
-child.stdout.on("data", function (data) {
-  console.log(data.toString());
-});
-child.stderr.on("data", function (data) {
-  console.error(data.toString());
-});
-
-////////////////////////////////////////////////////////////////////////////////
-// exit handler 
-////////////////////////////////////////////////////////////////////////////////
-
-// so the program will not close instantly
-process.stdin.resume();
-
-// do something before exit
-function exitHandler(options, exitCode) {
-  if (options.cleanup) {
-    // kill python child process
-    console.log("\nquitting python child process...");
-    child.kill("SIGINT");
-  }
-  if (options.exit) process.exit();
-}
-
-// do something when app is closing
-process.on('exit', exitHandler.bind(null, { cleanup: true }));
-
-// catches ctrl+c event
-process.on('SIGINT', exitHandler.bind(null, { exit: true }));
-
-// catches "kill pid" (for example: nodemon restart)
-process.on('SIGUSR1', exitHandler.bind(null, { exit: true }));
-process.on('SIGUSR2', exitHandler.bind(null, { exit: true }));
-
-// catches uncaught exceptions
-process.on('uncaughtException', exitHandler.bind(null, { exit: true }));
-
-////////////////////////////////////////////////////////////////////////////////
-// video server
-////////////////////////////////////////////////////////////////////////////////
-
 /**
  * @param {VideoServer~Options} options
  * @param {function(err): void} startedCallback called with err
@@ -243,7 +191,7 @@ var VideoServer = function (options, startedCallback) {
 
     const options = {
       method: "POST",
-      uri: `http://localhost:${(process.env.PORT || config.PORT) + 1}/api/v1/flask`,
+      uri: `http://192.168.0.42:3000/api/v1/flask`,
       body: data,
       json: true
     };
