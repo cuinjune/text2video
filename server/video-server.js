@@ -50,19 +50,20 @@ var statP = fs.promises.stat;
 // python child process
 ////////////////////////////////////////////////////////////////////////////////
 
-// // start python child process
-// var child = require("child_process").spawn("python", ["./server/main.py", process.env.PORT || config.PORT]);
-
-// // and unref() somehow disentangles the child's event loop from the parent's: 
-// child.unref();
-// child.stdout.setEncoding("utf8");
-// child.stderr.setEncoding("utf8");
+// start python child process
+var child = require("child_process").spawn("python", ["./server/main.py", process.env.PORT || config.PORT]);
+var dataString = '';
+// and unref() somehow disentangles the child's event loop from the parent's: 
+child.unref();
+child.stdout.setEncoding("utf8");
 // child.stdout.on("data", function (data) {
-//   console.log(data.toString());
+//   // dataString += data.toString();
+//   console.log("DATA STRING ", data);
 // });
-// child.stderr.on("data", function (data) {
-//   console.error(data.toString());
+// child.stdout.on('end', function () {
+//   console.log('Sum of numbers=', dataString);
 // });
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // exit handler 
@@ -235,15 +236,24 @@ var VideoServer = function (options, startedCallback) {
     return words;
   }
 
-  async function test_get(test) {
+
+  function fullUrl(req) {
+    return url.format({
+      protocol: req.protocol,
+      host: req.get('host'),
+      pathname: req.originalUrl
+    });
+  }
+
+  async function test_get(url) {
     const data = { // this variable contains the data you want to send 
       data1: "foo",
-      data2: test
+      data2: url
     }
 
     const options = {
       method: "POST",
-      uri: `http://localhost:${process.env.PORT || config.PORT}/api/v1/flask`,
+      uri: `${url}api/v1/flask`,
       body: data,
       json: true
     };
@@ -331,8 +341,13 @@ var VideoServer = function (options, startedCallback) {
                       const blockedIDs = [15333]; // temporary solution to avoid using CORS blocked contents
                       let imageIDs = new Set(blockedIDs);
                       let videoIDs = new Set(blockedIDs);
-                      const got = await test_get(sentences[0]);
+                      let uuu = fullUrl(req);
+                      uuu = uuu.replace("/api/v1/speech", "/");
+                      console.log("UUU : ", uuu);
+                      const got = await test_get(uuu);
                       console.log("WHAT I GOT GOT:", got);
+                      child.stdin.write(JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 9]));
+                      // child.stdin.end();
                       for (let i = sentences.length; i--;) {
                         const sentence = sentences[i].value;
                         const minDuration = sentences[i].time / 1000; // minimum required duration of video in seconds
