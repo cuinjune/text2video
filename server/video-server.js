@@ -191,7 +191,7 @@ var VideoServer = function (options, startedCallback) {
 
     const options = {
       method: "POST",
-      uri: `http://192.168.0.42:3000/api/v1/flask`,
+      uri: `http://pypytest.herokuapp.com:80/api/v1/flask`,
       body: data,
       json: true
     };
