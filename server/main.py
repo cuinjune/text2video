@@ -1,9 +1,14 @@
 import sys
+import os
 from flask import Flask, request 
+from gevent.pywsgi import WSGIServer
 import json 
- 
+
+
 app = Flask(__name__) 
-PORT = int(sys.argv[1]) or 8080
+PORT = int(os.environ.get("PORT", 8080) + 1)
+
+print("STARTING FLASK!!!!!!!!!!!!! FROM: ", PORT)
  
 @app.route("/api/v1/flask", methods = ["POST"]) 
 def postdata(): 
@@ -11,4 +16,5 @@ def postdata():
     return json.dumps(data) 
  
 if __name__ == "__main__": 
-	app.run(port=PORT) 
+    http_server = WSGIServer(('', PORT), app)
+    http_server.serve_forever()
