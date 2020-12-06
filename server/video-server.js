@@ -76,139 +76,9 @@ var VideoServer = function (options, startedCallback) {
     secretAccessKey: config.AWS_SECRET_ACCESS_KEY
   });
 
-  function getImageSearchURL(word) {
-    return `https://pixabay.com/api/?key=${config.PIXABAY_API_AUTH_KEY}&per_page=${200}&q=${encodeURIComponent(word)}`;
-  }
-
-  function getVideoSearchURL(word) {
-    return `https://pixabay.com/api/videos/?key=${config.PIXABAY_API_AUTH_KEY}&per_page=${200}&q=${encodeURIComponent(word)}`;
-  }
-
-  function printObtained(type, word, id, url) {
-    console.log(`${type}: ${word}, id: ${id}, url: ${url}`)
-  }
-
-  async function getImageURLFromWords(words, imageIDs) {
-    let imageURL = "";
-    for (const word of words) {
-      imageURL = await getJSON(getImageSearchURL(word)).then(function (res) {
-        const numImages = res.hits.length;
-        if (numImages) {
-          for (let i = 0; i < 3; i++) { // go through 3 tags
-            for (let j = 0; j < numImages; j++) {
-              // prioritize images tagged with the same word
-              if (res.hits[j].tags.split(", ")[i] === word && !imageIDs.has(res.hits[j].id)) {
-                const ratio = res.hits[j].webformatHeight / res.hits[j].webformatWidth;
-                if (ratio >= 0.5125 && ratio <= 0.6125) { // ideal ratio = 720 / 1280 = 0.5625
-                  imageIDs.add(res.hits[j].id);
-                  printObtained("image", word, res.hits[j].id, res.hits[j].webformatURL);
-                  return res.hits[j].webformatURL;
-                }
-              }
-            }
-          }
-          // get any available image regardless of tags
-          for (let j = 0; j < numImages; j++) {
-            if (!imageIDs.has(res.hits[j].id)) {
-              const ratio = res.hits[j].webformatHeight / res.hits[j].webformatWidth;
-              if (ratio >= 0.5125 && ratio <= 0.6125) { // ideal ratio = 720 / 1280 = 0.5625
-                imageIDs.add(res.hits[j].id);
-                printObtained("image", word, res.hits[j].id, res.hits[j].webformatURL);
-                return res.hits[j].webformatURL;
-              }
-            }
-          }
-          return "";
-        }
-        return "";
-      }).catch(function (err) {
-        console.log(err);
-        return "";
-      });
-      if (imageURL) {
-        break;
-      }
-    }
-    return imageURL;
-  }
-
-  async function getVideoURLFromWords(words, videoIDs, minDuration, maxDuration) {
-    let videoURL = "";
-    for (const word of words) {
-      videoURL = await getJSON(getVideoSearchURL(word)).then(function (res) {
-        const numVideos = res.hits.length;
-        if (numVideos) {
-          for (let i = 0; i < 3; i++) { // go through 3 tags
-            for (let j = 0; j < numVideos; j++) {
-              // prioritize videos tagged with the same word
-              if (res.hits[j].tags.split(", ")[i] === word && !videoIDs.has(res.hits[j].id)) {
-                const duration = res.hits[j].duration;
-                if (duration >= minDuration && duration <= maxDuration) {
-                  videoIDs.add(res.hits[j].id);
-                  printObtained("video", word, res.hits[j].id, res.hits[j].videos.medium.url);
-                  return res.hits[j].videos.medium.url;
-                }
-              }
-            }
-          }
-          // get any available video regardless of tags
-          for (let j = 0; j < numVideos; j++) {
-            if (!videoIDs.has(res.hits[j].id)) {
-              const duration = res.hits[j].duration;
-              if (duration >= minDuration && duration <= maxDuration) {
-                videoIDs.add(res.hits[j].id);
-                printObtained("video", word, res.hits[j].id, res.hits[j].videos.medium.url);
-                return res.hits[j].videos.medium.url;
-              }
-            }
-          }
-          return "";
-        }
-        return "";
-      }).catch(function (err) {
-        console.log(err);
-        return "";
-      });
-      if (videoURL) {
-        break;
-      }
-    }
-    return videoURL;
-  }
-
-  function getWordsFromSentence(sentence) {
-    let words = sentence.split(" ");
-    words = words.map(word => word.toLowerCase());
-    words = words.filter(word => word.length > 2 && !["the", "this", "are", "not", "but", "will", "you", "your", "and", "was", "then", "there", "those", "they", "our", "therefore", "however", "what", "when", "how", "where", "who"].includes(word));
-    return words;
-  }
-
-  async function test_get(test) {
-    const data = { // this variable contains the data you want to send 
-      data1: "foo",
-      data2: test
-    }
-
-    const options = {
-      method: "POST",
-      uri: `http://text-to-video-flask.herokuapp.com:80/api/v1/flask`,
-      body: data,
-      json: true
-    };
-
-    return await request(options)
-      .then(function (parsed) {
-        return parsed;
-      })
-      .catch(function (err) {
-        return { err: err };
-      });
-  }
-
   app.post("/api/v1/speech", (req, res) => {
     const params = {
-      Text: `<speak><prosody rate="90%">${req.body.text}</prosody></speak>`,
-      TextType: "ssml",
+      Text: req.body.text,
       VoiceId: req.body.voiceId,
       OutputFormat: "mp3"
     }
@@ -234,7 +104,7 @@ var VideoServer = function (options, startedCallback) {
                 audioData.fileContent = base64File;
                 params.OutputFormat = "json";
                 params.SpeechMarkTypes = ["word", "sentence"];
-                polly.synthesizeSpeech(params, async (err, data) => {
+                polly.synthesizeSpeech(params, (err, data) => {
                   if (err) {
                     res.json({ error: JSON.stringify(err.code) });
                   }
@@ -272,35 +142,35 @@ var VideoServer = function (options, startedCallback) {
                           nextStartTime = startTime;
                         }
                       }
-                      // convert original to formatted text
-                      let text = params.Text;
-                      let lastIndex = text.length - 1;
-                      // used for avoid using repeated contents
-                      const blockedIDs = [15333]; // temporary solution to avoid using CORS blocked contents
-                      let imageIDs = new Set(blockedIDs);
-                      let videoIDs = new Set(blockedIDs);
-                      const got = await test_get(sentences[0]);
-                      console.log("WHAT I GOT GOT:", got);
-                      for (let i = sentences.length; i--;) {
-                        const sentence = sentences[i].value;
-                        const minDuration = sentences[i].time / 1000; // minimum required duration of video in seconds
-                        const maxDuration = Math.min(minDuration + 30, 60); // maximum duration of video in seconds
-                        const start = text.lastIndexOf(sentence, lastIndex);
-                        const end = start + sentence.length;
-                        const words = getWordsFromSentence(sentence);
-                        let contentURL = await getVideoURLFromWords(words, videoIDs, minDuration, maxDuration);
-                        if (!contentURL) {
-                          contentURL = await getImageURLFromWords(words, imageIDs);
-                        }
-                        text = text.slice(0, start) + text.slice(start, end).replace(sentence, `[${sentence}](${contentURL})`) + text.slice(end);
-                        lastIndex = start - 1;
-                      }
-                      res.json({
-                        formattedText: text,
-                        audioData: audioData,
-                        markData: markData,
-                        got: got
-                      });
+                      const options = {
+                        method: "POST",
+                        uri: "http://localhost:3000/api/v1/flask/data",
+                        body: { sentences: sentences },
+                        json: true
+                      };
+                      request(options)
+                        .then(function (parsed) {
+                          // convert original to formatted text
+                          sentences = parsed.sentences;
+                          console.log(sentences);
+                          let text = params.Text;
+                          let lastIndex = text.length - 1;
+                          for (let i = sentences.length; i--;) {
+                            const sentence = sentences[i].value;
+                            const start = text.lastIndexOf(sentence, lastIndex);
+                            const end = start + sentence.length;
+                            text = text.slice(0, start) + text.slice(start, end).replace(sentence, `[${sentence}](${sentences[i].url})`) + text.slice(end);
+                            lastIndex = start - 1;
+                          }
+                          res.json({
+                            formattedText: text,
+                            audioData: audioData,
+                            markData: markData
+                          });
+                        })
+                        .catch(function (err) {
+                          res.json({ error: JSON.stringify(err.code) });
+                        });
                     }
                   }
                 });

@@ -296,8 +296,6 @@ async function makeCommands() {
     return "";
   }
   text = data.formattedText;
-  console.log("WHAT I GOT:", data.got);
-
   commands = [];
   let plainText = "";
   let index = 0;
@@ -394,7 +392,6 @@ async function makeCommands() {
           }
           else {
             type = "text";
-            value = "";
           }
           const command = {
             start: stack[stack.length - 1].index, // note: if start == end, it means [] is empty, should print error?
