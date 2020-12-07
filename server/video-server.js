@@ -144,7 +144,7 @@ var VideoServer = function (options, startedCallback) {
                       }
                       const options = {
                         method: "POST",
-                        uri: "http://192.168.0.42:3000/api/v1/flask/data",
+                        uri: "http://text-2-video-flask-kg75e.ondigitalocean.app:3000/api/v1/flask/data",
                         body: { sentences: sentences },
                         json: true
                       };
