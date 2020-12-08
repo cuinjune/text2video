@@ -551,7 +551,7 @@ example.addEventListener("click", function () {
     example.style.padding = "10px 20px";
   }
   else if (example.innerText === "Show Example") {
-    textArea.value = "Majority of part of the human brain is devoted towards processing the visual information. Brain responds to visuals fast, better than text or any other kind of learning material. Remembering stuff from the picture is retained in the mind for a longer time. The human brain is not only more used to seeing visuals but is also better at interpreting them.";
+    textArea.value = "Majority of part of the human brain is devoted towards processing the visual information. About 90% of the total information transmitted to your brain is visual. On top of that, your brain can process these visuals 60,000 times faster than text. The human brain is not only more used to seeing visuals but is also better at interpreting them.";
     example.innerText = "Clear Text";
     example.style.padding = "10px 37px";
     preview.click();
