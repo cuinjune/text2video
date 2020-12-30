@@ -10,7 +10,7 @@ I started this project because during this semester, I have been given many read
 I did some research and found a number of articles and studies supporting that videos can be more effective in learning than text for many people including the following data:
 
 * The human brain can process visuals 60,000 times faster than text.
-* Viewers retain 95% of a video’s message compared to 10% when reading text.
+* Viewers retain 95% of video’s message compared to 10% when reading text.
 * 65% of people consider themselves to be visual learners.
 
 I created a prototype web application that takes text as an input and generates a video as an output.
