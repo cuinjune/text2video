@@ -2,7 +2,7 @@
 <img src="screenshot.png" alt="screenshot" width="1000"/>
 
 ## Description
-**Text2Video** is a software tool that converts text to video for a more engaging learning experience.
+**Text2Video** is a software tool that converts text to video for more engaging learning experience.
 
 I started this project because during this semester, I have been given many reading assignments and I felt frustration in reading long text. For me, it was very time and energy consuming to learn something through reading. So I imagined, "What if there was a tool that turns text into something more engaging such as a video, wouldn't it improve my learning experience?"
 
