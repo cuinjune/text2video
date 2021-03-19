@@ -29,7 +29,7 @@ The technologies I used for the project are HTML, CSS,  Javascript, Node.js, CCa
  npm install
  npm start
 ```
-3. Open your web browser and navigate to http://localhost:8080
+3. Open your web browser and navigate to http://localhost:8000
 
 ## Source Code
 * Client & Node.js server (Javascript): https://github.com/cuinjune/text2video
