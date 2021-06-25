@@ -144,7 +144,7 @@ var VideoServer = function (options, startedCallback) {
                       }
                       const options = {
                         method: "POST",
-                        uri: "http://104.248.224.60:3000/api/v1/flask/data",
+                        uri: "http://localhost:3000/api/v1/flask/data",
                         body: { sentences: sentences },
                         json: true
                       };

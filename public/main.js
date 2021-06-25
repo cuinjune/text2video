@@ -12,6 +12,7 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 canvas.width = 1280;
 canvas.height = 720;
+const corsPrefix = "http://localhost:8080/";
 
 // elements
 const textArea = document.getElementById("textArea");
@@ -341,17 +342,17 @@ async function makeCommands() {
               const videoLoadPromise = new Promise(resolve => {
                 object = document.createElement("video");
                 object.crossOrigin = "anonymous";
-                object.oncanplaythrough = resolve;
+                object.oncanplay = resolve;
                 object.onerror = function () {
                   alert(`Error: Could not load the video from ${value}`);
                   return "";
                 };
-                object.src = value;
+                object.src = `${corsPrefix}${value}`;
               });
               console.log("loading video:", value);
               await videoLoadPromise;
-              object.play();
-              object.pause();
+              // object.play();
+              // object.pause();
               object.volume = 0;
               object.currentTime = 0;
             }
