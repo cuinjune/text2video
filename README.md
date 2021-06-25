@@ -46,14 +46,15 @@ python main.py
 6. After a few seconds you should see a message `Listening on port: 3000` in the Terminal console.
 
 ### CORS Anywhere
-1. Run the following commands in the Terminal.
+1. Installation of Node.js is required.
+2. Run the following commands in the Terminal.
 ```
 git clone https://github.com/Rob--W/cors-anywhere.git
 cd cors-anywhere
 npm install
 npm start
 ```
-2. You should see a message `Running CORS Anywhere on 0.0.0.0:8080` in the Terminal console.
+3. You should see a message `Running CORS Anywhere on 0.0.0.0:8080` in the Terminal console.
 
 ### Text2Video
 1. Installation of Node.js is required.
