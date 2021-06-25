@@ -3,7 +3,9 @@
 
 ## Description
 
-**Note:** This project is no longer being maintained, please check out https://www.viviify.com/
+**Note: This project is no longer being maintained, please check out https://www.viviify.com/**
+
+-------------------------------
 
 **Text2Video** is a software tool that converts text to video for more engaging learning experience.
 
