@@ -2,6 +2,9 @@
 <img src="screenshot.png" alt="screenshot" width="1000"/>
 
 ## Description
+
+**Note:** This project is no longer being maintained, please check out https://www.viviify.com/
+
 **Text2Video** is a software tool that converts text to video for more engaging learning experience.
 
 I started this project because during this semester, I have been given many reading assignments and I felt frustration in reading long text. For me, it was very time and energy consuming to learn something through reading. So I imagined, "What if there was a tool that turns text into something more engaging such as a video, wouldn't it improve my learning experience?"
@@ -13,8 +16,6 @@ I did some research and found a number of articles and studies supporting that v
 * 65% of people consider themselves to be visual learners.
 
 I created a prototype web application that takes text as an input and generates a video as an output.
-
-Here's the [Live Demo on Heroku](https://text-to-video.herokuapp.com/).
 
 I plan to further work on the project targeting young college students who are aged between 18 to 23 because they tend to prefer learning through videos over books based on the survey I found.
 
