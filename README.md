@@ -32,6 +32,7 @@ The technologies I used for the project are HTML, CSS,  Javascript, Node.js, CCa
 git clone https://github.com/cuinjune/text2video-flask.git
 cd text2video-flask
 pip install -r requirements.txt
+python -m spacy download en_core_web_md
 touch .env
 ```
 3. Visit [Pixabay API Documentation page](https://pixabay.com/api/docs/), login and copy your API key in the page.
