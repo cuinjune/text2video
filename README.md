@@ -3,7 +3,7 @@
 
 ## Description
 
-**Note: This project is no longer being maintained, please check out https://www.viviify.com/**
+**Note: This project is no longer being maintained, please check out https://github.com/cuinjune/viviify**
 
 -------------------------------
 
